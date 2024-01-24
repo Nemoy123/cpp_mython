@@ -36,35 +36,68 @@ VariableValue::VariableValue(std::vector<std::string> dotted_ids)
     
 
 ObjectHolder VariableValue::Execute(Closure& closure, [[maybe_unused]] Context& context) {
-    ObjectHolder result;
-    for (const auto& name : dot_) {
-        auto find_var = closure.find(name);
-        if (find_var != closure.end()) {
-            result = find_var->second;
+    
+
+    // ObjectHolder result;
+    // bool begin = true;
+    // //std::vector<runtime::ObjectHolder> arg;
+    // for (const auto& name : dot_) {
+    //     if (begin) {
+            
+    //         auto find_var = closure.find(name);
+    //         if (find_var != closure.end()) {
+    //             result = find_var->second;
+    //             begin = false; 
+                
+    //             continue;
+
+    //         }
+    //         else {
+    //             if (closure.find("self") != closure.end()) {
+    //                 if (closure["self"].TryAs<runtime::ClassInstance>()) {
+    //                     auto find_var2 = closure["self"].TryAs<runtime::ClassInstance>()->Fields().find(name);
+    //                     if (find_var2 != closure["self"].TryAs<runtime::ClassInstance>()->Fields().end()) {
+    //                         result = find_var2->second;
+    //                         begin = false;
+    //                         continue;
+    //                     }
+    //                     else {
+    //                         throw std::runtime_error ("VariableValue Error");
+    //                     }
+    //                 }
+    //                 else {
+    //                     throw std::runtime_error ("VariableValue Error");
+    //                 }
+    //             } else {
+    //                 throw std::runtime_error ("VariableValue Error");
+    //             }
+    //         }
+    //     }
+       
+    //     if ( result.TryAs<runtime::ClassInstance>() ) {
+    //         if (result.TryAs<runtime::ClassInstance>()->HasMethod(name, 0)) {
+    //             auto temp = result.TryAs<runtime::ClassInstance>()->Call(name, {}, context);
+    //             result = std::move(temp);
+    //             continue;
+    //         }
+    //     }
+    //     throw std::runtime_error ("VariableValue Error");
+    // }
+    // return result;
+    size_t counter = 0;
+    Closure* temp_map = &closure;
+    while (counter < dot_.size()-1){
+        if (((temp_map)->count(dot_[counter]) == 0) || (!(temp_map)->at(dot_[counter]).TryAs<runtime::ClassInstance>())){
+            throw runtime_error("VariableValue Error");
         }
-        else {
-            if (closure.find("self") != closure.end()) {
-                if (closure["self"].TryAs<runtime::ClassInstance>()) {
-                    auto find_var2 = closure["self"].TryAs<runtime::ClassInstance>()->Fields().find(name);
-                    if (find_var2 != closure["self"].TryAs<runtime::ClassInstance>()->Fields().end()) {
-                        result = find_var2->second;
-                    }
-                    else {
-                        throw std::runtime_error ("VariableValue Error");
-                    }
-                }
-                else {
-                    throw std::runtime_error ("VariableValue Error");
-                }
-            } else {
-                throw std::runtime_error ("VariableValue Error");
-            }
-        }
+        temp_map = &((temp_map)->at(dot_[counter]).TryAs<runtime::ClassInstance>()->Fields());
+        ++counter;
     }
-    return result;
-    
-    
-}
+    if ((temp_map)->count(dot_[counter]) == 0){
+        throw runtime_error("VariableValue Error");
+    }
+    return (*temp_map).at(dot_[counter]);
+} 
 
 unique_ptr<Print> Print::Variable(const std::string& name) {
     
@@ -360,7 +393,7 @@ Comparison::Comparison(Comparator cmp, unique_ptr<Statement> lhs, unique_ptr<Sta
 ObjectHolder Comparison::Execute(Closure& closure, Context& context) {
     auto lhs_holder = GetArgumentLhs()->Execute(closure, context);
     auto rhs_holder = GetArgumentRhs()->Execute(closure, context);
-    bool result = cmp_(lhs_holder, lhs_holder, context);
+    bool result = cmp_(lhs_holder, rhs_holder, context);
 
     return ObjectHolder::Own(runtime::Bool(result));
 }

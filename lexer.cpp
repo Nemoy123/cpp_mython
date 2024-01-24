@@ -3,8 +3,7 @@
 #include <algorithm>
 #include <charconv>
 #include <unordered_map>
-#include <sstream>
-#include <iterator>
+#include <iostream>
 
 using namespace std;
 
@@ -77,343 +76,216 @@ std::ostream& operator<<(std::ostream& os, const Token& rhs) {
     return os << "Unknown token :("sv;
 }
 
-std::optional <int> SearchStringEnd (char* start_pos, char* end_pos, char delimiter) {
-    auto iter = find (start_pos, end_pos+1, delimiter);
-        if (iter != end_pos + 1) {
-
-            if (*(iter-1) != 92) { // проверяем что не спецсимвол
-                // нашли конец
-                return std::distance (start_pos, iter);
-            }
-            else { // спецсимвол, ищем дальше в буфере, рекурсия?
-                if (SearchStringEnd ( iter+1, end_pos, delimiter ).has_value()) {
-                    return std::distance (start_pos, iter+1) + SearchStringEnd ( iter+1, end_pos, delimiter ).value();
-                } else {
-                    return std::nullopt;
-                }
-            }
-        }
-    return std::nullopt; // считываем еще буфер
-}
-
-// ostream& operator<< (ostream& out, const vector <char>& vec) {
-//     for (const auto& item : vec) {
-//         out << item << "-";
-//     }
-//     return out;
-// }
-
-void CleanVectorChar (std::vector <char>& vec) {    
-    std::vector <char> result;
-    result.reserve(vec.size());
-    for (size_t i = 0; i < vec.size(); ++i) {
-        if (vec[i] == 92 && vec[i + 1] == '"') {
-            //result.push_back(vec[i + 1]); 
-            continue;    
-        }
-        else if (vec[i] == 92 && vec[i + 1] == '\'') {
-            //result.push_back(vec[i + 1]);
-            continue;
-        }
-        else if (vec[i] == 92 && vec[i + 1] == 't') {
-            //result.push_back(vec[i + 1]);
-            char tempor = 9;
-            result.push_back(tempor);
-            vec.erase ((vec.begin()+i+1));
-        }
-        else if (vec[i] == 92 && vec[i + 1] == 'n') {
-            //result.push_back(vec[i + 1]);
-            char tempor = '\n';
-            result.push_back(tempor);
-            vec.erase ((vec.begin()+i+1));
-        }
-        
-        else {
-            result.push_back(vec[i]);
-        }
-    }
-    vec = result;
-}
-
-Token Lexer::StringParsing () const {
-    
-    char delimiter; 
-    string out_str;
-    delimiter = std:: move (vector_buff_.front());
-    if (!vector_buff_.empty()) {vector_buff_.erase(vector_buff_.begin());}
-    //vector_buff_.erase(vector_buff_.begin());
-    std::vector <char> temp2;
-    while (true) {
-        
-        auto temp = SearchStringEnd (&vector_buff_.front(), &vector_buff_.back(), delimiter);
-
-        if (temp.has_value()) {
-            std::move(&vector_buff_.front(), &vector_buff_.front() + temp.value(), std::back_inserter(temp2));
-            vector_buff_.erase(vector_buff_.begin(), vector_buff_.begin() + temp.value() + 1);
-            break;
-        }
-    }
-
-    CleanVectorChar (temp2);
-   return Token{parse::token_type::String (temp2)};
-
-}
-
-Token Lexer::NameParsing () const { 
-    string result{};
-    char ch;
-    bool begin = true;
-    while(!vector_buff_.empty()) {
-       // char test = input_.peek();
-        if ((vector_buff_.front() > 64 && vector_buff_.front() < 91) || (vector_buff_.front() > 96 && vector_buff_.front() < 123) || vector_buff_.front() == 95) { 
-            ch = std::move(vector_buff_.front());
-            if (!vector_buff_.empty()) {vector_buff_.erase(vector_buff_.begin());}
-            //buffer_stream_ >> ch;
-            result.push_back(ch);
-            begin = false;
-        }
-        else if (vector_buff_.front() > 47 && vector_buff_.front() < 58 && !begin) {
-            ch = std::move(vector_buff_.front());
-            if (!vector_buff_.empty()) {vector_buff_.erase(vector_buff_.begin());}
-            //buffer_stream_ >> ch;
-            result.push_back(ch);
-        }
-        else {
-            break;
-        }
-
-    }
-    if (tokens_map_.find(result) != tokens_map_.end()) {
-        return tokens_map_.at(result);
-    }
-    else {
-        return Token{parse::token_type::Id {result}};
-    }
-}
-
-Token Lexer::NumberParsing () const {
-    string result{};
-    char ch;
-    while(!vector_buff_.empty()) {
-        if (vector_buff_.front() > 47 && vector_buff_.front() < 58 ) { // число
-            ch = std::move(vector_buff_.front());
-            if (!vector_buff_.empty()) {vector_buff_.erase(vector_buff_.begin());}
-            //buffer_stream_ >> ch;
-            result.push_back(ch);
-        }
-        else {
-            break;
-        }
-    }
-    return Token{parse::token_type::Number {std::stoi (result)}};
-}
-
-std::optional<Token> Lexer:: CheckIntend() {
-    //char skip;
-    int count = 0;
-    bool change_input = false;
-    while (vector_buff_.front() == ' ') {
-        //buffer_stream_.get(skip);
-        if (!vector_buff_.empty()) {vector_buff_.erase(vector_buff_.begin());}
-        change_input = true;
-        if (vector_buff_.front() == ' ') {
-            if (!vector_buff_.empty()) {vector_buff_.erase(vector_buff_.begin());}
-            //buffer_stream_.get(skip);
-            ++count;
-        } else {break;}
-    }
-    if (count > offset_) {
-        token_ = (Token{parse::token_type::Indent{}});
-        ++offset_;
-        return token_;
-    } 
-    else if (count < offset_) {
-        token_ = (Token{parse::token_type::Dedent{}});
-        --offset_;
-        if (change_input) {
-            for (auto i = 0; i < offset_; ++i) {
-                char temp = 32;
-                vector_buff_.insert(vector_buff_.begin(), temp);
-                vector_buff_.insert(vector_buff_.begin(), temp);
-                //buffer_stream_.putback(temp);
-                //buffer_stream_.putback(temp);
-            }
-        }
-        return token_;
-    }
-    //if (count == offset_) {
-    else {
-        return std::nullopt;
-    }
-                
+Lexer::Lexer(std::istream& input)
+:input_(input){
+    GetNextToken();
 }
 
 const Token& Lexer::CurrentToken() const {
-    //throw std::logic_error("Not implemented"s);
-    return token_;
+   return lexer_[curr_index_];
 }
 
-std::optional<Token> Lexer::EOFParsing () {
-     if (vector_buff_.empty()) {
-        if (token_ != Token{parse::token_type::Newline {}} && token_ != Token{parse::token_type::Eof {}} 
-            && token_ != Token{parse::token_type::Dedent {}}) {
-            token_ = Token{parse::token_type::Newline {}};
-            return token_;
-        }
-        token_ = Token{parse::token_type::Eof {}};
-        return token_;
+Token Lexer::NextToken(){
+    if (static_cast<int>(lexer_.size()) > curr_index_ + 1){
+        ++curr_index_;
+        return lexer_[curr_index_];
     }
-    else {return std::nullopt;}
+    else {
+        GetNextToken();
+        ++curr_index_;
+        return lexer_[curr_index_];
+    }
 }
 
-Token Lexer::NextToken() {
-    char next_item;
-    
-     auto eof_optional = EOFParsing();
-    if (eof_optional.has_value()) {
-        return eof_optional.value();
+bool Lexer::GotEmptyLine(std::string input_str){
+    size_t pos = input_str.find_first_not_of(' ');
+    if (pos != std::string::npos && input_str[pos] != '\n' && input_str[pos] !='#'){
+        return false;
     }
-    
-    while(!vector_buff_.empty()) {
-        next_item = vector_buff_.front();
-        if (next_item == '#') {
-            string line;
-            vector_buff_.erase(vector_buff_.begin(), std::find(vector_buff_.begin(), vector_buff_.end(), '\n') );
-            continue;
-        }
-        if ( token_ == Token{parse::token_type::Newline {}} && next_item == '\n' ) {
-            // char skip;
-            // buffer_stream_.get(skip);
-            if (!vector_buff_.empty()) {vector_buff_.erase(vector_buff_.begin());}
-            continue;
-        }
-        if (   (token_ == Token{parse::token_type::Newline {}} && next_item == ' ') 
-            || (token_ == Token{parse::token_type::Dedent {}}  && offset_ > 0) 
-            || (token_ == Token{parse::token_type::Newline {}} && next_item != ' ' && offset_ > 0)
-            ) { 
-                auto off = CheckIntend();
-                if (off.has_value()) {
-                    return off.value();
-                }
-                else {
-                    //next_item = buffer_stream_.peek();
-                    next_item = vector_buff_.front();
-                }
-        }
+    return true;
+}
 
-        if ((next_item > 64 && next_item < 91) || (next_item > 96 && next_item < 123) || next_item == 95) { // имя переменной, не строка
-            token_ = (NameParsing());
-            return token_;
-            
+void Lexer::ProcessTokens(std::string input_str){
+    if (input_str.size() == 0){
+        return;
+    }
+    size_t pos = input_str.find_first_not_of(' ');
+    if (pos == std::string::npos){
+        return;
+    }
+    input_str = input_str.substr(pos);
+    std::string lex = ""s;
+    if (input_str[0] =='#'){
+        lexer_.push_back(token_type::Newline{});
+        return;
+    }
+    else if (input_str[0]  == '=' || input_str[0] == '!' || input_str[0] == '<' || input_str[0] == '>'){
+        if (input_str.size() == 1){
+            lexer_.push_back(token_type::Char(input_str[0]));
         }
-
-        else if (next_item > 47 && next_item < 58) { // число
-            token_ = (NumberParsing());
-            return token_;
-            
-        }
-
-        else if (next_item == '+' || next_item == '-'|| next_item == '*'|| next_item == '/' 
-                || next_item == ':' || next_item == '(' || next_item == ')' || next_item == ','|| next_item == '.') {
-            char temp = std::move(vector_buff_.front());
-            if (!vector_buff_.empty()) {vector_buff_.erase(vector_buff_.begin());}
-            //char temp = buffer_stream_.get();
-            token_ = (Token{parse::token_type::Char {temp}});
-            return token_;
-            //break;
-        }
-        else if (next_item == '!') {
-            char temp = std::move(vector_buff_.front());
-            if (!vector_buff_.empty()) {vector_buff_.erase(vector_buff_.begin());}
-            //char temp = buffer_stream_.get();
-            if (vector_buff_.front() != '=') {
-                token_ = (Token{parse::token_type::Char {temp}});
-                return token_;
-            } else {
-                token_ = (Token{parse::token_type::NotEq {}});
-                temp = std::move(vector_buff_.front());
-                if (!vector_buff_.empty()) {vector_buff_.erase(vector_buff_.begin());}
-                //buffer_stream_.get(temp);
-                return token_;
-            }
-        }
-        else if (next_item == '=') {
-            //char temp = buffer_stream_.get();
-            char temp = std::move(vector_buff_.front());
-            if (!vector_buff_.empty()) {vector_buff_.erase(vector_buff_.begin());}
-
-            if (vector_buff_.front() != '=' || vector_buff_.empty()) {
-                token_ = (Token{parse::token_type::Char {temp}});
-                return token_;
-            } else {
-                token_ = (Token{parse::token_type::Eq {}});
-                temp = std::move(vector_buff_.front());
-                if (!vector_buff_.empty()) {vector_buff_.erase(vector_buff_.begin());}
-                //buffer_stream_.get(temp);
-                return token_;
-            }
-        }    
-        
-
-        else if ( next_item == '>' || next_item == '<') {
-            //char temp = buffer_stream_.get();
-            char temp = std::move(vector_buff_.front());
-            if (!vector_buff_.empty()) {vector_buff_.erase(vector_buff_.begin());}
-            if (vector_buff_.front() != '=') {
-                token_ = (Token{parse::token_type::Char {temp}});
-                return token_;
-            } else {
-                if (temp == '<') {
-                    token_ = (Token{parse::token_type::LessOrEq {}});
-                }
-                else {
-                    token_ = (Token{parse::token_type::GreaterOrEq {}});
-                }
-                //buffer_stream_.get(temp);
-                temp = std::move(vector_buff_.front());
-                if (!vector_buff_.empty()) {vector_buff_.erase(vector_buff_.begin());}
-                return token_;
-            }
-            
-        }
-
-        else if (next_item == '\n') {
-            //char temp;
-            //buffer_stream_.get(temp);
-            //char temp = std::move(vector_buff_.front());
-            if (!vector_buff_.empty()) {vector_buff_.erase(vector_buff_.begin());}
-            token_ = (Token{parse::token_type::Newline {}});
-            return token_;
-            //break;
-        }
-
-        else if (vector_buff_.front() == 34 || vector_buff_.front() == 39) { // кавычки начало строки
-            token_ = StringParsing ();
-            return token_;
-        }
-        
         else {
-            //char skip;
-            if (!vector_buff_.empty()) {vector_buff_.erase(vector_buff_.begin());}
-            //buffer_stream_.get(skip);
+            lex += input_str[0];
+            lex += input_str[1];
+            if (lex == "=="){
+                lexer_.push_back(token_type::Eq{});
+                if (input_str.size()>2)
+                    ProcessTokens(input_str.substr(2));
+            }
+            else if (lex == "<="){
+                lexer_.push_back(token_type::LessOrEq{});
+                if (input_str.size()>2)
+                    ProcessTokens(input_str.substr(2));
+            }
+            else if (lex == ">="){
+                lexer_.push_back(token_type::GreaterOrEq{});
+                if (input_str.size()>2)
+                    ProcessTokens(input_str.substr(2));
+            } 
+            else if (lex == "!="){
+                lexer_.push_back(token_type::NotEq{});
+                if (input_str.size()>2)
+                    ProcessTokens(input_str.substr(2));
+            }
+            else {
+                lexer_.push_back(token_type::Char(input_str[0]));
+                ProcessTokens(input_str.substr(1));
+            }
         }
-    } // конец while
+    }
+    else if (input_str[0] == '\n'){
+        lexer_.push_back(token_type::Newline{});
+        return;
+    }
+    else if  (std::isdigit(input_str[0])){
+        pos = 0;
+        while (pos <= input_str.size()-1 && std::isdigit(input_str[pos])){
+            ++pos;
+        }
+        lexer_.push_back(token_type::Number(stoi(input_str.substr(0,pos))));
+        ProcessTokens(input_str.substr(pos));
+    }
+    else if (std::isalpha(input_str[0])|| input_str[0]=='_'){
+        pos = 0;
+        while (pos <= input_str.size()-1 && (std::isalpha(input_str[pos])|| std::isdigit(input_str[pos]) || input_str[pos] == '_')){
+            ++pos;
+        }
+        std::string lex = input_str.substr(0, pos);
+        if (lex == "class"s) lexer_.push_back(token_type::Class{});
+        else if (lex == "return"s) lexer_.push_back(token_type::Return{});
+        else if (lex == "if"s) lexer_.push_back(token_type::If{});
+        else if (lex == "else"s) lexer_.push_back(token_type::Else{});
+        else if (lex == "def"s) lexer_.push_back(token_type::Def{});
+        else if (lex == "None"s) lexer_.push_back(token_type::None{});
+        else if (lex == "True"s) lexer_.push_back(token_type::True{});
+        else if (lex == "False"s) lexer_.push_back(token_type::False{});
+        else if (lex == "and"s) lexer_.push_back(token_type::And{});
+        else if (lex == "or"s) lexer_.push_back(token_type::Or{});
+        else if (lex == "not"s) lexer_.push_back(token_type::Not{});
+        else if (lex == "print"s) lexer_.push_back(token_type::Print{});
+        else lexer_.push_back(token_type::Id(lex));
+        ProcessTokens(input_str.substr(pos));
+    }
+    else if  (input_str[0] == '\''){
+        pos = 1;
+        std::string result_str = ""s;
+        while (pos <= input_str.size()-1 && input_str[pos] != '\''){
+            if (input_str[pos] != 92){
+                result_str += input_str[pos];
+            }
+            else{
+                if (input_str[pos+1] == '\'')
+                    result_str += '\'';
+                if (input_str[pos+1] == '"')
+                    result_str += '"';
+                if  (input_str[pos+1] == 't')
+                        result_str += '\t';
+                if  (input_str[pos+1] == 'n')
+                        result_str += '\n';
+                ++pos;
+            }
+            ++pos;
+        }
+        lexer_.push_back(token_type::String(result_str));
+        if (input_str.size()> pos+1)
+            ProcessTokens(input_str.substr(pos+1));
+    }
+    else if  (input_str[0] == '\"'){
+        size_t pos = 1;
+        std::string result_str = ""s;
+        while (pos <= input_str.size()-1 && input_str[pos] != '\"' && input_str[pos-1]!='\\'){
+           if (input_str[pos] != 92){
+                result_str += input_str[pos];
+            }
+            else{
+                if (input_str[pos+1] == '\'')
+                    result_str += '\'';
+                if (input_str[pos+1] == '"')
+                    result_str += '"';
+                if  (input_str[pos+1] == 't')
+                        result_str += '\t';
+                if  (input_str[pos+1] == 'n')
+                        result_str += '\n';
+                ++pos;
+            }
+            ++pos;
+        }
+        lexer_.push_back(token_type::String(result_str));
+        if (input_str.size()> pos+1)
+            ProcessTokens(input_str.substr(pos+1));
+    }
+    else{
+        lexer_.push_back(token_type::Char(input_str[0]));
+        if (input_str.size()>1) {
+            ProcessTokens(input_str.substr(1));
+        }
+    }
+}
     
-   
-
-    if (vector_buff_.empty() && offset_ > 0) {
-        token_ = Token{parse::token_type::Dedent {}};
-        --offset_;
-        return token_;
+void Lexer::GetNextToken() {
+    if (!input_){
+        lexer_.push_back(token_type::Eof{});
+    }
+    std::string input_str = "";
+    while (input_ && GotEmptyLine(input_str)){
+       input_str = "";
+       char ch;
+        while (input_){
+            if (input_.get(ch)) input_str += ch;
+            if (ch == '\n') break;
+        }
+    }
+    if (!input_ && GotEmptyLine(input_str)){
+        if (indent_ > 0){
+            for (int i=0; i < indent_; ++i){
+                lexer_.push_back(token_type::Dedent{});
+            }
+        }
+        lexer_.push_back(token_type::Eof{});
+        return;
     }
 
-    eof_optional = EOFParsing();
-    if (eof_optional.has_value()) {
-        return eof_optional.value();
+    size_t pos = input_str.find_first_not_of(' ');
+    if (pos % 2 == 1){
+        throw LexerError("Wrong indent"s);
     }
-
-    return {};
-    
+    int new_indent = pos / 2;
+    if (new_indent > indent_){
+        for (int i=0; i < new_indent - indent_; ++i){
+            lexer_.push_back(token_type::Indent{});
+        }
+        indent_ = new_indent;
+    }
+    if (new_indent < indent_){
+        for (int i=0; i < indent_ - new_indent; ++i){
+            lexer_.push_back(token_type::Dedent{});
+        }
+        indent_ = new_indent;
+    } 
+    input_str = input_str.substr(pos);
+    if (input_str.back() != '\n'){
+        input_str += '\n';
+    }
+    ProcessTokens(input_str);
 }
 
 }  // namespace parse

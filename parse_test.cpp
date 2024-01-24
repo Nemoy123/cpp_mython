@@ -91,7 +91,7 @@ else:
     runtime::Closure closure;
     auto tree = ParseProgramFromString(program);
     tree->Execute(closure, context);
-    cout << context.output.str() << endl;
+    //cout << context.output.str() << endl;
     ASSERT_EQUAL(context.output.str(), "x <= y\ny >= 0\n"s);
 }
 
@@ -140,7 +140,7 @@ print x.result
     runtime::Closure closure;
     auto tree = ParseProgramFromString(program);
     tree->Execute(closure, context);
-
+    cout << context.output.str() << endl;
     ASSERT_EQUAL(context.output.str(), "55\n"s);
 }
 
@@ -269,8 +269,8 @@ x = X(xh)
 }  // namespace parse
 
 void TestParseProgram(TestRunner& tr) {
-    // RUN_TEST(tr, parse::TestSimpleProgram);
-    // RUN_TEST(tr, parse::TestProgramWithClasses);
+    RUN_TEST(tr, parse::TestSimpleProgram);
+    RUN_TEST(tr, parse::TestProgramWithClasses);
     RUN_TEST(tr, parse::TestProgramWithIf);
     RUN_TEST(tr, parse::TestReturnFromIf);
     RUN_TEST(tr, parse::TestRecursion);
