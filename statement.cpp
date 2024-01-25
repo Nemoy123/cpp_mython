@@ -94,7 +94,23 @@ ObjectHolder VariableValue::Execute(Closure& closure, [[maybe_unused]] Context& 
         ++counter;
     }
     if ((temp_map)->count(dot_[counter]) == 0){
-        throw runtime_error("VariableValue Error");
+        if (closure.find("self") != closure.end()) {
+            if (closure["self"].TryAs<runtime::ClassInstance>()) {
+                auto name = dot_.at(0);
+                // auto find_var2 = closure["self"].TryAs<runtime::ClassInstance>()->Fields().find(name);
+                // if (find_var2 != closure["self"].TryAs<runtime::ClassInstance>()->Fields().end()) {
+                   return closure["self"];
+                // }
+                // else {
+                //     throw std::runtime_error ("VariableValue Error");
+                // }
+            }
+            else {
+                throw std::runtime_error ("VariableValue Error");
+            }
+        } else {
+            throw std::runtime_error ("VariableValue Error");
+        }
     }
     return (*temp_map).at(dot_[counter]);
 } 
@@ -136,6 +152,9 @@ ObjectHolder Print::Execute(Closure& closure, Context& context) {
         }
         else if (result.TryAs<runtime::ClassInstance>()) {
             result.TryAs<runtime::ClassInstance>()->Print(context.GetOutputStream(), context);
+        }
+        else if (result.TryAs<runtime::Bool>()) {
+            result.TryAs<runtime::Bool>()->Print(context.GetOutputStream(), context);
         }
         begin = false;
     }
@@ -262,7 +281,7 @@ ObjectHolder Return::Execute(Closure& closure, Context& context) {
 ClassDefinition::ClassDefinition(ObjectHolder cls)
 :cls_(std::move(cls)){}
 
-ObjectHolder ClassDefinition::Execute(Closure& closure, Context& context) {
+ObjectHolder ClassDefinition::Execute(Closure& closure, [[maybe_unused]]Context& context) {
     closure[cls_.TryAs<runtime::Class>()->GetName()] = cls_;
     return cls_;
 }
@@ -293,6 +312,9 @@ ObjectHolder FieldAssignment::Execute(Closure& closure, Context& context) {
             runtime::Closure* closure_map = &cl_in->Fields();
              
             (*closure_map)[field_name_] = obj_holder_closure;
+            if (!((*closure_map)[field_name_]))  {
+                cout << " ERRRRRRRRRRRoRRRRRRRR";
+            }
         }
 
     return result;
@@ -402,45 +424,29 @@ NewInstance::NewInstance(const runtime::Class& class_, std::vector<std::unique_p
                   : class_first_ptr_ (&class_)
                   , class_new_ptr_(make_unique<runtime::ClassInstance> (class_))
                   , args_(std::move(args))
-                //: class_new_ptr_ (make_unique<runtime::Class>( *(args[0].get()), *(args[1].get()), *(args[2].get()) ))
-                {   
-                   // class_new_ptr_ = make_unique<runtime::ClassInstance> (class_);
-                    // 
-                }
-// NewInstance::NewInstance(const runtime::Class& class_, std::vector<std::unique_ptr<Statement>> args)
-//                 : new_class_(class_)
-//                 , class_new_ptr_(make_unique<runtime::ClassInstance> (new_class_))
-//                 , args_(std::move(args))
-//                 { }
+                  {}
 
 NewInstance::NewInstance(const runtime::Class& class_) 
                 : class_first_ptr_ (&class_)
                 , class_new_ptr_(make_unique<runtime::ClassInstance> (class_))
                 {}
-// NewInstance::NewInstance(const runtime::Class& class_) 
 
-//                 :  new_class_(class_)
-//                 , class_new_ptr_(make_unique<runtime::ClassInstance> (new_class_))
-//                 {
-               
-//                 }
 
 ObjectHolder NewInstance::Execute([[maybe_unused]]Closure& closure, Context& context) {
     if (class_new_ptr_) {
         if (class_new_ptr_.get()->HasMethod("__init__", args_.size())) {
             ObjectHolder result;
-            std::vector<ObjectHolder> obj_holders;
+            std::vector<ObjectHolder> obj_holders {};
             for (auto& arg : args_) {
-                auto obj = arg.get()->Execute(class_new_ptr_.get()->Fields(), context);
+                auto obj = arg.get()->Execute(closure, context);
                 obj_holders.push_back(obj);
             }
-            result = class_new_ptr_.get()->Call("__init__", obj_holders, context);    
+            result = class_new_ptr_.get()->Call("__init__", obj_holders, context); 
         }
     }
-    //runtime::ClassInstance* ptr = class_new_ptr_.release();
-    //result = ObjectHolder::Own (*(class_new_ptr_.release()));
     return ObjectHolder::Share ( *(class_new_ptr_.release()) );
 }
+
 // ObjectHolder NewInstance::Execute(Closure& closure, Context& context) {
 //     if (class_new_ptr_) {
 //         if (class_new_ptr_.get()->HasMethod("__init__", args_.size())) {

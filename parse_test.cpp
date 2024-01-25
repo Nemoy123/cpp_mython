@@ -4,6 +4,16 @@
 #include "test_runner_p.h"
 
 using namespace std;
+using namespace runtime; 
+
+using Closure = std::unordered_map<std::string, ObjectHolder>;
+void PrintMapKey (const Closure& closure) {
+    for (const auto& [name, ptr]:closure) {
+                        std::cout << name << "-";
+                    }
+    std::cout << endl;
+}
+
 
 namespace parse {
 
@@ -140,7 +150,7 @@ print x.result
     runtime::Closure closure;
     auto tree = ParseProgramFromString(program);
     tree->Execute(closure, context);
-    cout << context.output.str() << endl;
+    
     ASSERT_EQUAL(context.output.str(), "55\n"s);
 }
 
@@ -187,7 +197,7 @@ print ok
     runtime::Closure closure;
     auto tree = ParseProgramFromString(program);
     tree->Execute(closure, context);
-
+    
     ASSERT_EQUAL(context.output.str(), "False\n"s);
 }
 
@@ -244,6 +254,8 @@ print r, c, t1, t2
                  "Rect(10x20) Circle(52) Triangle(3, 4, 5) Wrong triangle\n"s);
 }
 
+
+
 void TestSelfInConstructor() {
     const string program = (R"--(
 class X:
@@ -260,9 +272,12 @@ x = X(xh)
     runtime::Closure closure;
     auto tree = ParseProgramFromString(program);
     tree->Execute(closure, context);
-
+    //cout << context.output.str() << endl;
     const auto* xh = closure.at("xh"s).TryAs<runtime::ClassInstance>();
     ASSERT(xh != nullptr);
+    // PrintMapKey (xh->Fields());
+    // cout << xh->Fields().at("x"s).Get() << endl;
+    // cout << closure.at("x"s).Get() << endl;
     ASSERT_EQUAL(xh->Fields().at("x"s).Get(), closure.at("x"s).Get());
 }
 
